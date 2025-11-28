@@ -207,13 +207,15 @@ Plasmoid.PlasmoidItem {
         RowLayout {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
-
+            Layout.alignment: Qt.AlignBottom
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
 
             Rectangle {
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 0.3
                 Layout.preferredHeight: Kirigami.Units.gridUnit
                 radius: 0
                 color: accentColor
+                Layout.alignment: Qt.AlignBottom
             }
 
             QQC2.Label {
@@ -221,10 +223,12 @@ Plasmoid.PlasmoidItem {
                 text: loading ? "Fetching BTC price" : "BTC Price"
                 color: textColor
                 font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.1
+                Layout.alignment: Qt.AlignBottom
             }
 
             ColumnLayout {
                 spacing: 0
+                Layout.alignment: Qt.AlignBottom
 
                 QQC2.Label {
                     text: formattedPrice(currentValue)
