@@ -18,7 +18,7 @@ Plasmoid.PlasmoidItem {
     property string historyBaseUrl: "https://api.coinbase.com/v2/prices/"
     property string historyUrl: historyBaseUrl + currencyPair + "/historic?period=day"
     property int updateInterval: 30000 // ms (debug cadence; keep gentle for production)
-    property int historySampleInterval: updateInterval
+    property int historySampleInterval: 300000 // ms resolution for prewarmed history, as coinbase sends it
     property int maxSamples: 2880
     property var samples: []
     property real minSample: 0
@@ -116,7 +116,10 @@ Plasmoid.PlasmoidItem {
             var price = rawPrice ? parseFloat(rawPrice) : NaN;
             var timestamp = parseHistoryTimestamp(entry.time);
             if (!isNaN(price) && !isNaN(timestamp)) {
-                parsed.push({ time: timestamp, price: price });
+                parsed.push({
+                    time: timestamp,
+                    price: price
+                });
             }
         }
         if (parsed.length < 2) {
@@ -127,13 +130,19 @@ Plasmoid.PlasmoidItem {
             return a.time - b.time;
         });
         var interpolated = interpolateHistorySeries(parsed);
+
         if (!interpolated.length) {
             console.warn("BTC history interpolation failed");
             return;
         }
+        console.log("BTC history hydrated", parsed.length, "entries ->", interpolated.length, "samples", "source range", new Date(parsed[0].time).toISOString(), "to", new Date(parsed[parsed.length - 1].time).toISOString());
+        console.log("BTC history preview", interpolated.slice(0, 5), "...", interpolated.slice(Math.max(0, interpolated.length - 5)));
+        // console.warn("BTC history debug mode: generating synthetic samples");
+        // samples = generateDebugSamples();
+
         samples = interpolated;
-        currentValue = interpolated[interpolated.length - 1];
-        lastUpdated = new Date(parsed[parsed.length - 1].time).toISOString();
+        currentValue = samples[samples.length - 1];
+        lastUpdated = new Date().toISOString();
         updateRange();
         chartCanvas.requestPaint();
         loading = false;
@@ -148,6 +157,10 @@ Plasmoid.PlasmoidItem {
             interval = 30000;
         var newestTime = points[points.length - 1].time;
         var oldestTime = newestTime - (desiredSamples - 1) * interval;
+        var historyOldest = points[0].time;
+        if (historyOldest > oldestTime) {
+            console.warn("BTC history older gap", new Date(historyOldest).toISOString(), "target oldest", new Date(oldestTime).toISOString());
+        }
         var result = new Array(desiredSamples);
         var segmentIndex = 0;
         for (var i = 0; i < desiredSamples; ++i) {
@@ -168,6 +181,16 @@ Plasmoid.PlasmoidItem {
             var span = right.time - left.time;
             var ratio = span === 0 ? 0 : (targetTime - left.time) / span;
             result[i] = left.price + ratio * (right.price - left.price);
+        }
+        return result;
+    }
+
+    function generateDebugSamples() {
+        var result = new Array(maxSamples);
+        var value = 90000;
+        for (var i = 0; i < result.length; ++i) {
+            value += (Math.random() - 0.5) * 200;
+            result[i] = value;
         }
         return result;
     }
@@ -293,7 +316,7 @@ Plasmoid.PlasmoidItem {
                     }
 
                     ctx.strokeStyle = accentColor;
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 1;
                     ctx.beginPath();
 
                     for (var i = 0; i < samples.length; ++i) {
