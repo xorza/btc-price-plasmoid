@@ -22,10 +22,3 @@ This repository hosts an experimental KDE Plasma 6.5 plasmoid that displays the 
 ## Data source
 
 The widget queries [Coinbase’s spot price API](https://api.coinbase.com/v2/prices/spot?currency=USD) every 30 seconds using `XmlHttpRequest` from QML. Only the BTC/USD pair is enabled by default; you can change the `currency` and `currencySymbol` properties in `plasmoid/contents/ui/main.qml` (e.g., set `EUR`/`€`) to track a different fiat currency. Coinbase enforces rate limits, so adjust the `updateInterval` property if you need to poll less aggressively.
-
-## Next steps
-
-- Wire in a configuration module so users can select different exchanges, fiat currencies, sample depth, and polling intervals.
-- Replace the custom canvas chart with Plasma's System Monitor datasource + charts for better consistency.
-- Persist historic samples and handle offline states/caching so the graph survives plasma restarts.
-- Harden the networking code (timeouts, exponential backoff, alternate APIs) for production use.
