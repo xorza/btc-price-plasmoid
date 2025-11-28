@@ -1,12 +1,13 @@
-import QtQuick 6.5
-import QtQuick.Controls 6.5 as QQC2
-import QtQuick.Layouts 6.5
-import org.kde.plasma.core 6.0 as PlasmaCore
+import QtQuick
+import QtQuick.Controls as QQC2
+import QtQuick.Layouts
+import org.kde.kirigami as Kirigami
+import org.kde.plasma.plasmoid 2.0 as Plasmoid
 
-Item {
+Plasmoid.PlasmoidItem {
     id: root
-    implicitWidth: PlasmaCore.Units.gridUnit * 12
-    implicitHeight: PlasmaCore.Units.gridUnit * 6
+    implicitWidth: Kirigami.Units.gridUnit * 12
+    implicitHeight: Kirigami.Units.gridUnit * 6
 
     property int sampleCount: 32
     property var samples: []
@@ -38,13 +39,13 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: PlasmaCore.Units.smallSpacing
-        spacing: PlasmaCore.Units.smallSpacing
+        anchors.margins: Kirigami.Units.smallSpacing
+        spacing: Kirigami.Units.smallSpacing
 
         QQC2.Label {
             Layout.fillWidth: true
             text: "BTC Price"
-            font.pixelSize: PlasmaCore.Theme.defaultFont.pixelSize * 1.1
+            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.1
         }
 
         Item {
@@ -54,9 +55,9 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: PlasmaCore.Units.smallSpacing
-                color: PlasmaCore.Theme.backgroundColor
-                border.color: PlasmaCore.Theme.highlightColor
+                radius: Kirigami.Units.smallSpacing
+                color: Kirigami.Theme.backgroundColor
+                border.color: Kirigami.Theme.highlightColor
                 border.width: 1
             }
 
@@ -72,7 +73,7 @@ Item {
                     if (samples.length === 0)
                         return
 
-                    ctx.strokeStyle = PlasmaCore.Theme.highlightColor
+                    ctx.strokeStyle = Kirigami.Theme.highlightColor
                     ctx.lineWidth = 2
                     ctx.beginPath()
 
@@ -93,8 +94,8 @@ Item {
         QQC2.Label {
             Layout.fillWidth: true
             text: "Placeholder data – hook up real BTC prices next"
-            font.pixelSize: PlasmaCore.Theme.smallestFont.pixelSize
-            color: PlasmaCore.Theme.disabledTextColor
+            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+            color: Kirigami.Theme.disabledTextColor
             horizontalAlignment: Text.AlignLeft
         }
     }
