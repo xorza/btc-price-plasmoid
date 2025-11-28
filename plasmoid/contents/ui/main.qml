@@ -157,13 +157,7 @@ Plasmoid.PlasmoidItem {
                     }
 
                     QQC2.Label {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: -Kirigami.Units.gridUnit
-                        text: labelForStop(gridStops[index])
-                        color: textColor
-                        opacity: 0.8
-                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
+                        visible: false
                     }
                 }
             }
@@ -217,6 +211,7 @@ Plasmoid.PlasmoidItem {
         RowLayout {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
+
 
             Rectangle {
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 0.8
