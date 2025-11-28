@@ -18,7 +18,7 @@ Plasmoid.PlasmoidItem {
     property string historyBaseUrl: "https://api.coinbase.com/v2/prices/"
     property string historyUrl: historyBaseUrl + currencyPair + "/historic?period=day"
     property int updateInterval: 30000 // ms (debug cadence; keep gentle for production)
-    property int historySampleInterval: 300000 // ms resolution for prewarmed history, as coinbase sends it
+    property int historySampleInterval: 30000 // ms resolution for prewarmed history output (30s cadence)
     property int maxSamples: 2880
     property var samples: []
     property real minSample: 0
@@ -137,12 +137,9 @@ Plasmoid.PlasmoidItem {
         }
         console.log("BTC history hydrated", parsed.length, "entries ->", interpolated.length, "samples", "source range", new Date(parsed[0].time).toISOString(), "to", new Date(parsed[parsed.length - 1].time).toISOString());
         console.log("BTC history preview", interpolated.slice(0, 5), "...", interpolated.slice(Math.max(0, interpolated.length - 5)));
-        // console.warn("BTC history debug mode: generating synthetic samples");
-        // samples = generateDebugSamples();
-
         samples = interpolated;
-        currentValue = samples[samples.length - 1];
-        lastUpdated = new Date().toISOString();
+        currentValue = interpolated[interpolated.length - 1];
+        lastUpdated = new Date(parsed[parsed.length - 1].time).toISOString();
         updateRange();
         chartCanvas.requestPaint();
         loading = false;
@@ -181,16 +178,6 @@ Plasmoid.PlasmoidItem {
             var span = right.time - left.time;
             var ratio = span === 0 ? 0 : (targetTime - left.time) / span;
             result[i] = left.price + ratio * (right.price - left.price);
-        }
-        return result;
-    }
-
-    function generateDebugSamples() {
-        var result = new Array(maxSamples);
-        var value = 90000;
-        for (var i = 0; i < result.length; ++i) {
-            value += (Math.random() - 0.5) * 200;
-            result[i] = value;
         }
         return result;
     }
