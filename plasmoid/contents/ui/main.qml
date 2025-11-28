@@ -17,9 +17,8 @@ Plasmoid.PlasmoidItem {
     property string currencyPair: "BTC-" + currency
     property string historyBaseUrl: "https://api.coinbase.com/v2/prices/"
     property string historyUrl: historyBaseUrl + currencyPair + "/historic?period=day"
-    property int updateInterval: 30000 // ms (debug cadence; keep gentle for production)
-    property int historySampleInterval: 30000 // ms resolution for prewarmed history output (30s cadence)
-    property int maxSamples: 2880
+    property int sampleInterval: 30000 // ms (debug cadence; keep gentle for production)
+    property int maxSamples: 24 * 60 * 60 * 1000 / sampleInterval
     property var samples: []
     property real minSample: 0
     property real maxSample: 0
@@ -35,7 +34,7 @@ Plasmoid.PlasmoidItem {
 
     Timer {
         id: fetchTimer
-        interval: updateInterval
+        interval: sampleInterval
         repeat: true
         running: true
         onTriggered: fetchPrice()
@@ -149,9 +148,7 @@ Plasmoid.PlasmoidItem {
         var desiredSamples = maxSamples;
         if (desiredSamples <= 0)
             return [];
-        var interval = historySampleInterval;
-        if (interval <= 0)
-            interval = 30000;
+        var interval = sampleInterval;
         var newestTime = points[points.length - 1].time;
         var oldestTime = newestTime - (desiredSamples - 1) * interval;
         var historyOldest = points[0].time;
