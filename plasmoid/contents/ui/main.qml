@@ -14,8 +14,8 @@ Plasmoid.PlasmoidItem {
     property string currencySymbol: "$"
     property string apiBaseUrl: "https://api.coinbase.com/v2/prices/spot?currency="
     property string apiUrl: apiBaseUrl + currency
-    property int updateInterval: 1000 // ms (debug cadence; keep gentle for production)
-    property int maxSamples: 90
+    property int updateInterval: 30000 // ms (debug cadence; keep gentle for production)
+    property int maxSamples: 2880
     property var samples: []
     property real minSample: 0
     property real maxSample: 0
@@ -85,11 +85,12 @@ Plasmoid.PlasmoidItem {
         }
         minSample = Math.min.apply(Math, samples)
         maxSample = Math.max.apply(Math, samples)
-        if (minSample === maxSample) {
-            // pad the range slightly so lines render mid-grid
-            minSample -= 1
-            maxSample += 1
+        var padding = (maxSample - minSample) * 0.05
+        if (padding === 0) {
+            padding = 1
         }
+        minSample -= padding
+        maxSample += padding
     }
 
     function normalizedValue(value) {
@@ -109,18 +110,6 @@ Plasmoid.PlasmoidItem {
             return formattedPrice(currentValue)
         var value = minSample + stop * (maxSample - minSample)
         return formattedPrice(value)
-    }
-
-    Rectangle {
-        id: card
-        anchors.fill: parent
-        radius: Kirigami.Units.smallSpacing * 2
-        gradient: Gradient {
-            GradientStop { position: 0; color: "#2f332d" }
-            GradientStop { position: 1; color: "#1f241d" }
-        }
-        border.color: "#151812"
-        border.width: 1
     }
 
     ColumnLayout {
