@@ -12,9 +12,9 @@ Plasmoid.PlasmoidItem {
     // Data + API setup
     property string currency: "USD"
     property string currencySymbol: "$"
-    property string apiBaseUrl: "https://api.coindesk.com/v1/bpi/currentprice/"
-    property string apiUrl: apiBaseUrl + currency + ".json"
-    property int updateInterval: 30000 // ms
+    property string apiBaseUrl: "https://api.coinbase.com/v2/prices/spot?currency="
+    property string apiUrl: apiBaseUrl + currency
+    property int updateInterval: 1000 // ms (debug cadence; keep gentle for production)
     property int maxSamples: 90
     property var samples: []
     property real minSample: 0
@@ -49,15 +49,15 @@ Plasmoid.PlasmoidItem {
             if (xhr.status === 200) {
                 try {
                     var data = JSON.parse(xhr.responseText)
-                    var section = data && data.bpi && data.bpi[currency]
-                    if (!section || !section.rate_float) {
-                        console.warn("BTC API payload missing rate_float", xhr.responseText)
+                    var payload = data && data.data
+                    var amount = payload && payload.amount ? parseFloat(payload.amount) : NaN
+                    if (!amount || isNaN(amount)) {
+                        console.warn("BTC API payload missing amount", xhr.responseText)
                         return
                     }
-                    var price = section.rate_float
-                    currentValue = price
-                    lastUpdated = data.time && data.time.updatedISO ? data.time.updatedISO : new Date().toISOString()
-                    pushSample(price)
+                    currentValue = amount
+                    lastUpdated = payload && payload.time ? payload.time : new Date().toISOString()
+                    pushSample(amount)
                     loading = false
                 } catch (e) {
                     console.warn("BTC API parse error", e)
@@ -99,9 +99,9 @@ Plasmoid.PlasmoidItem {
     }
 
     function formattedPrice(value) {
-        if (!value && value !== 0)
+        if (value === undefined || value === null || value !== value)
             return "--"
-        return currencySymbol + Qt.formatLocaleNumber(Qt.locale(), value, "f", 2)
+        return currencySymbol + Qt.locale().toString(value, "f", 2)
     }
 
     function labelForStop(stop) {
@@ -177,8 +177,17 @@ Plasmoid.PlasmoidItem {
                     ctx.reset()
                     ctx.clearRect(0, 0, width, height)
 
-                    if (samples.length === 0)
+                    if (samples.length < 2) {
+                        if (samples.length === 1) {
+                            var singleRatio = normalizedValue(samples[0])
+                            var pointY = (1 - singleRatio) * height
+                            ctx.fillStyle = accentColor
+                            ctx.beginPath()
+                            ctx.arc(width - 6, pointY, 3, 0, Math.PI * 2)
+                            ctx.fill()
+                        }
                         return
+                    }
 
                     ctx.strokeStyle = accentColor
                     ctx.lineWidth = 2
