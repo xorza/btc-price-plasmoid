@@ -14,7 +14,11 @@ Plasmoid.PlasmoidItem {
     property string currencySymbol: "$"
     property string apiBaseUrl: "https://api.coinbase.com/v2/prices/spot?currency="
     property string apiUrl: apiBaseUrl + currency
+    property string currencyPair: "BTC-" + currency
+    property string historyBaseUrl: "https://api.coinbase.com/v2/prices/"
+    property string historyUrl: historyBaseUrl + currencyPair + "/historic?period=day"
     property int updateInterval: 30000 // ms (debug cadence; keep gentle for production)
+    property int historySampleInterval: updateInterval
     property int maxSamples: 2880
     property var samples: []
     property real minSample: 0
@@ -37,7 +41,35 @@ Plasmoid.PlasmoidItem {
         onTriggered: fetchPrice()
     }
 
-    Component.onCompleted: fetchPrice()
+    Component.onCompleted: {
+        fetchHistory();
+        fetchPrice();
+    }
+
+    function fetchHistory() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", historyUrl);
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== XMLHttpRequest.DONE)
+                return;
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    var prices = data && data.data && data.data.prices;
+                    if (!prices || !prices.length) {
+                        console.warn("BTC history payload empty", xhr.responseText);
+                        return;
+                    }
+                    hydrateSamplesFromHistory(prices);
+                } catch (e) {
+                    console.warn("BTC history parse error", e);
+                }
+            } else {
+                console.warn("BTC history request failed", xhr.status, xhr.responseText);
+            }
+        };
+        xhr.send();
+    }
 
     function fetchPrice() {
         var xhr = new XMLHttpRequest();
@@ -74,6 +106,87 @@ Plasmoid.PlasmoidItem {
         samples = nextSamples;
         updateRange();
         chartCanvas.requestPaint();
+    }
+
+    function hydrateSamplesFromHistory(historyEntries) {
+        var parsed = [];
+        for (var i = 0; i < historyEntries.length; ++i) {
+            var entry = historyEntries[i] || {};
+            var rawPrice = entry.price || entry.amount || entry.spot_price;
+            var price = rawPrice ? parseFloat(rawPrice) : NaN;
+            var timestamp = parseHistoryTimestamp(entry.time);
+            if (!isNaN(price) && !isNaN(timestamp)) {
+                parsed.push({ time: timestamp, price: price });
+            }
+        }
+        if (parsed.length < 2) {
+            console.warn("BTC history missing usable samples");
+            return;
+        }
+        parsed.sort(function (a, b) {
+            return a.time - b.time;
+        });
+        var interpolated = interpolateHistorySeries(parsed);
+        if (!interpolated.length) {
+            console.warn("BTC history interpolation failed");
+            return;
+        }
+        samples = interpolated;
+        currentValue = interpolated[interpolated.length - 1];
+        lastUpdated = new Date(parsed[parsed.length - 1].time).toISOString();
+        updateRange();
+        chartCanvas.requestPaint();
+        loading = false;
+    }
+
+    function interpolateHistorySeries(points) {
+        var desiredSamples = maxSamples;
+        if (desiredSamples <= 0)
+            return [];
+        var interval = historySampleInterval;
+        if (interval <= 0)
+            interval = 30000;
+        var newestTime = points[points.length - 1].time;
+        var oldestTime = newestTime - (desiredSamples - 1) * interval;
+        var result = new Array(desiredSamples);
+        var segmentIndex = 0;
+        for (var i = 0; i < desiredSamples; ++i) {
+            var targetTime = oldestTime + i * interval;
+            if (targetTime <= points[0].time) {
+                result[i] = points[0].price;
+                continue;
+            }
+            if (targetTime >= points[points.length - 1].time) {
+                result[i] = points[points.length - 1].price;
+                continue;
+            }
+            while (segmentIndex < points.length - 2 && targetTime > points[segmentIndex + 1].time) {
+                segmentIndex++;
+            }
+            var left = points[segmentIndex];
+            var right = points[segmentIndex + 1];
+            var span = right.time - left.time;
+            var ratio = span === 0 ? 0 : (targetTime - left.time) / span;
+            result[i] = left.price + ratio * (right.price - left.price);
+        }
+        return result;
+    }
+
+    function parseHistoryTimestamp(raw) {
+        if (raw === undefined || raw === null)
+            return NaN;
+        if (typeof raw === "number")
+            return normalizeEpoch(raw);
+        if (typeof raw === "string" && raw.length && raw.match(/^\d+(\.\d+)?$/))
+            return normalizeEpoch(parseFloat(raw));
+        var parsed = Date.parse(raw);
+        return isNaN(parsed) ? NaN : parsed;
+    }
+
+    function normalizeEpoch(value) {
+        if (!isFinite(value))
+            return NaN;
+        return value < 1e12 ? value * 1000 : value;
     }
 
     function updateRange() {
