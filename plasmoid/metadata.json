@@ -1,14 +1,14 @@
 {
   "KPackageStructure": "Plasma/Applet",
   "KPlugin": {
-    "Id": "org.example.btcplasmoid",
+    "Id": "com.cssodessa.btcplasmoid",
     "Name": "BTC Price Chart",
-    "Description": "Line chart plasmoid placeholder for Bitcoin price",
+    "Description": "Line chart plasmoid for Bitcoin price",
     "Version": "0.1.0",
     "CompatVersion": "6.0",
     "Authors": [
       {
-        "Name": "btc-plasmoid",
+        "Name": "noname",
         "Email": "devnull@example.com"
       }
     ],
