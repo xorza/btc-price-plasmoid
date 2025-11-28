@@ -1,0 +1,10 @@
+kpackagetool6 --type Plasma/Applet -r com.cssodessa.btcplasmoid
+kpackagetool6 --type Plasma/Applet -i plasmoid
+
+kpackagetool6 --type Plasma/Applet -u plasmoid
+
+zip -r btc-price.plasmoid plasmoid
+
+plasmoidviewer -a plasmoid
+
+kquitapp6 plasmashell && kstart plasmashell
