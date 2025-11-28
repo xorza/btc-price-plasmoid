@@ -146,7 +146,14 @@ Plasmoid.PlasmoidItem {
                     }
 
                     QQC2.Label {
-                        visible: false
+                        LayoutMirroring.enabled: true
+                        anchors.right: parent.right
+                        anchors.rightMargin: Kirigami.Units.smallSpacing
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: labelForStop(gridStops[index])
+                        color: textColor
+                        opacity: 0.8
+                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
                     }
                 }
             }
