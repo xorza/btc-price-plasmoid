@@ -25,7 +25,7 @@ Plasmoid.PlasmoidItem {
 
     // Visual constants
     property color accentColor: "#1de9b6"
-    property color gridColor: "#454a40"
+    property color gridColor: "#5c6155"
     property color textColor: "#f4f5f0"
     property var gridStops: [1, 0.75, 0.5, 0.25, 0]
 
