@@ -210,9 +210,9 @@ Plasmoid.PlasmoidItem {
 
 
             Rectangle {
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 0.8
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 0.8
-                radius: Kirigami.Units.smallSpacing
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 0.3
+                Layout.preferredHeight: Kirigami.Units.gridUnit
+                radius: 0
                 color: accentColor
             }
 
