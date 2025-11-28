@@ -1,7 +1,7 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15 as QQC2
-import QtQuick.Layouts 1.15
-import org.kde.plasma.core 2.1 as PlasmaCore
+import QtQuick 6.5
+import QtQuick.Controls 6.5 as QQC2
+import QtQuick.Layouts 6.5
+import org.kde.plasma.core 6.0 as PlasmaCore
 
 Item {
     id: root

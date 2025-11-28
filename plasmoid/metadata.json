@@ -1,0 +1,24 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Id": "org.example.btcplasmoid",
+    "Name": "BTC Price Chart",
+    "Description": "Line chart plasmoid placeholder for Bitcoin price",
+    "Version": "0.1.0",
+    "Authors": [
+      {
+        "Name": "btc-plasmoid",
+        "Email": "devnull@example.com"
+      }
+    ],
+    "Icon": "view-statistics",
+    "Category": "System Information",
+    "License": "MIT",
+    "EnabledByDefault": true,
+    "ServiceTypes": [
+      "Plasma/Applet"
+    ]
+  },
+  "X-Plasma-API": "declarativeappletscript",
+  "X-Plasma-MainScript": "ui/main.qml"
+}
