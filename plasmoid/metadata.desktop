@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=BTC Price Chart
+Comment=Line chart plasmoid placeholder for Bitcoin price
+Type=Service
+Icon=view-statistics
+X-KDE-ServiceTypes=Plasma/Applet
+X-KDE-PluginInfo-Author=btc-plasmoid
+X-KDE-PluginInfo-Email=devnull@example.com
+X-KDE-PluginInfo-Name=org.example.btcplasmoid
+X-KDE-PluginInfo-Version=0.1.0
+X-KDE-PluginInfo-License=MIT
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=declarativeappletscript
+X-Plasma-RootPath=plasmoid
+X-Plasma-MainScript=ui/main.qml
