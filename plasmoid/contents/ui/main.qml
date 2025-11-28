@@ -40,82 +40,82 @@ Plasmoid.PlasmoidItem {
     Component.onCompleted: fetchPrice()
 
     function fetchPrice() {
-        var xhr = new XMLHttpRequest()
-        xhr.open("GET", apiUrl)
-        xhr.onreadystatechange = function() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", apiUrl);
+        xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
-                return
-
+                return;
             if (xhr.status === 200) {
                 try {
-                    var data = JSON.parse(xhr.responseText)
-                    var payload = data && data.data
-                    var amount = payload && payload.amount ? parseFloat(payload.amount) : NaN
+                    var data = JSON.parse(xhr.responseText);
+                    var payload = data && data.data;
+                    var amount = payload && payload.amount ? parseFloat(payload.amount) : NaN;
                     if (!amount || isNaN(amount)) {
-                        console.warn("BTC API payload missing amount", xhr.responseText)
-                        return
+                        console.warn("BTC API payload missing amount", xhr.responseText);
+                        return;
                     }
-                    currentValue = amount
-                    lastUpdated = payload && payload.time ? payload.time : new Date().toISOString()
-                    pushSample(amount)
-                    loading = false
+                    currentValue = amount;
+                    lastUpdated = payload && payload.time ? payload.time : new Date().toISOString();
+                    pushSample(amount);
+                    loading = false;
                 } catch (e) {
-                    console.warn("BTC API parse error", e)
+                    console.warn("BTC API parse error", e);
                 }
             } else {
-                console.warn("BTC API request failed", xhr.status, xhr.responseText)
+                console.warn("BTC API request failed", xhr.status, xhr.responseText);
             }
-        }
-        xhr.send()
+        };
+        xhr.send();
     }
 
     function pushSample(price) {
-        var nextSamples = samples.slice(Math.max(0, samples.length - (maxSamples - 1)))
-        nextSamples.push(price)
-        samples = nextSamples
-        updateRange()
-        chartCanvas.requestPaint()
+        var nextSamples = samples.slice(Math.max(0, samples.length - (maxSamples - 1)));
+        nextSamples.push(price);
+        samples = nextSamples;
+        updateRange();
+        chartCanvas.requestPaint();
     }
 
     function updateRange() {
         if (!samples.length) {
-            minSample = 0
-            maxSample = 0
-            return
+            minSample = 0;
+            maxSample = 0;
+            return;
         }
-        minSample = Math.min.apply(Math, samples)
-        maxSample = Math.max.apply(Math, samples)
-        var padding = (maxSample - minSample) * 0.05
+        minSample = Math.min.apply(Math, samples);
+        maxSample = Math.max.apply(Math, samples);
+        var padding = (maxSample - minSample) * 0.05;
         if (padding === 0) {
-            padding = 1
+            padding = 1;
         }
-        minSample -= padding
-        maxSample += padding
+        minSample -= padding;
+        maxSample += padding;
     }
 
     function normalizedValue(value) {
         if (maxSample === minSample)
-            return 0.5
-        return (value - minSample) / (maxSample - minSample)
+            return 0.5;
+        return (value - minSample) / (maxSample - minSample);
     }
 
     function formattedPrice(value) {
         if (value === undefined || value === null || value !== value)
-            return "--"
-        return currencySymbol + Qt.locale().toString(value, "f", 2)
+            return "--";
+        return currencySymbol + Qt.locale().toString(value, "f", 2);
     }
 
     function labelForStop(stop) {
         if (maxSample === minSample)
-            return formattedPrice(currentValue)
-        var value = minSample + stop * (maxSample - minSample)
-        return formattedPrice(value)
+            return formattedPrice(currentValue);
+        var value = minSample + stop * (maxSample - minSample);
+        return formattedPrice(value);
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
-        spacing: Kirigami.Units.largeSpacing
+        anchors.margins: Kirigami.Units.smallSpacing
+        anchors.topMargin: Kirigami.Units.smallSpacing
+        spacing: Kirigami.Units.smallSpacing
 
         QQC2.Label {
             Layout.alignment: Qt.AlignHCenter
@@ -163,37 +163,37 @@ Plasmoid.PlasmoidItem {
                 anchors.fill: parent
                 antialiasing: true
                 onPaint: {
-                    var ctx = getContext("2d")
-                    ctx.reset()
-                    ctx.clearRect(0, 0, width, height)
+                    var ctx = getContext("2d");
+                    ctx.reset();
+                    ctx.clearRect(0, 0, width, height);
 
                     if (samples.length < 2) {
                         if (samples.length === 1) {
-                            var singleRatio = normalizedValue(samples[0])
-                            var pointY = (1 - singleRatio) * height
-                            ctx.fillStyle = accentColor
-                            ctx.beginPath()
-                            ctx.arc(width - 6, pointY, 3, 0, Math.PI * 2)
-                            ctx.fill()
+                            var singleRatio = normalizedValue(samples[0]);
+                            var pointY = (1 - singleRatio) * height;
+                            ctx.fillStyle = accentColor;
+                            ctx.beginPath();
+                            ctx.arc(width - 6, pointY, 3, 0, Math.PI * 2);
+                            ctx.fill();
                         }
-                        return
+                        return;
                     }
 
-                    ctx.strokeStyle = accentColor
-                    ctx.lineWidth = 2
-                    ctx.beginPath()
+                    ctx.strokeStyle = accentColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
 
                     for (var i = 0; i < samples.length; ++i) {
-                        var ratio = normalizedValue(samples[i])
-                        var x = (i / (samples.length - 1)) * width
-                        var y = (1 - ratio) * height
+                        var ratio = normalizedValue(samples[i]);
+                        var x = (i / (samples.length - 1)) * width;
+                        var y = (1 - ratio) * height;
                         if (i === 0)
-                            ctx.moveTo(x, y)
+                            ctx.moveTo(x, y);
                         else
-                            ctx.lineTo(x, y)
+                            ctx.lineTo(x, y);
                     }
 
-                    ctx.stroke()
+                    ctx.stroke();
                 }
             }
 
