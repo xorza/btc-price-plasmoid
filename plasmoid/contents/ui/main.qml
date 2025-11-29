@@ -25,6 +25,10 @@ Plasmoid.PlasmoidItem {
     property real currentValue: 0
     property string lastUpdated: ""
     property bool loading: true
+    property real failureStartTime: 0
+    property bool historyRecoveryNeeded: false
+    property int failureRecoveryInterval: 30 * 60 * 1000 // ms
+    property bool historyFetchInProgress: false
 
     // Visual constants
     property color accentColor: "#1de9b6"
@@ -46,11 +50,17 @@ Plasmoid.PlasmoidItem {
     }
 
     function fetchHistory() {
+        historyFetchInProgress = true;
         var xhr = new XMLHttpRequest();
         xhr.open("GET", historyUrl);
+        xhr.onerror = function (event) {
+            console.error("BTC history network error", event && event.type ? event.type : event);
+            historyFetchInProgress = false;
+        };
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
+            historyFetchInProgress = false;
             if (xhr.status === 200) {
                 try {
                     var data = JSON.parse(xhr.responseText);
@@ -64,7 +74,7 @@ Plasmoid.PlasmoidItem {
                     console.warn("BTC history parse error", e);
                 }
             } else {
-                console.warn("BTC history request failed", xhr.status, xhr.responseText);
+                console.error("BTC history request failed", xhr.status, xhr.responseText);
             }
         };
         xhr.send();
@@ -73,6 +83,9 @@ Plasmoid.PlasmoidItem {
     function fetchPrice() {
         var xhr = new XMLHttpRequest();
         xhr.open("GET", apiUrl);
+        xhr.onerror = function (event) {
+            handleSpotFailure("BTC API network error", event && event.type ? event.type : event);
+        };
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
@@ -82,21 +95,50 @@ Plasmoid.PlasmoidItem {
                     var payload = data && data.data;
                     var amount = payload && payload.amount ? parseFloat(payload.amount) : NaN;
                     if (!amount || isNaN(amount)) {
-                        console.warn("BTC API payload missing amount", xhr.responseText);
+                        handleSpotFailure("BTC API payload missing amount", xhr.responseText);
                         return;
                     }
                     currentValue = amount;
                     lastUpdated = payload && payload.time ? payload.time : new Date().toISOString();
                     pushSample(amount);
                     loading = false;
+                    registerSpotSuccess();
                 } catch (e) {
-                    console.warn("BTC API parse error", e);
+                    handleSpotFailure("BTC API parse error", e);
                 }
             } else {
-                console.warn("BTC API request failed", xhr.status, xhr.responseText);
+                handleSpotFailure("BTC API request failed", xhr.status, xhr.responseText);
             }
         };
         xhr.send();
+    }
+
+    function handleSpotFailure(message, detail) {
+        console.error(message, detail);
+        registerSpotFailure();
+    }
+
+    function registerSpotSuccess() {
+        failureStartTime = 0;
+        attemptHistoryRecovery();
+    }
+
+    function registerSpotFailure() {
+        var now = Date.now();
+        if (!failureStartTime) {
+            failureStartTime = now;
+        }
+        if (!historyRecoveryNeeded && now - failureStartTime >= failureRecoveryInterval) {
+            historyRecoveryNeeded = true;
+            console.warn("BTC API failures exceeded 30 minutes, requesting full history");
+        }
+        attemptHistoryRecovery();
+    }
+
+    function attemptHistoryRecovery() {
+        if (!historyRecoveryNeeded || historyFetchInProgress)
+            return;
+        fetchHistory();
     }
 
     function pushSample(price) {
@@ -142,6 +184,10 @@ Plasmoid.PlasmoidItem {
         updateRange();
         chartCanvas.requestPaint();
         loading = false;
+        if (historyRecoveryNeeded) {
+            historyRecoveryNeeded = false;
+            failureStartTime = Date.now();
+        }
     }
 
     function interpolateHistorySeries(points) {
