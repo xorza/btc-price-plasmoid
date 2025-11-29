@@ -17,7 +17,7 @@ Plasmoid.PlasmoidItem {
     property string currencyPair: "BTC-" + currency
     property string historyBaseUrl: "https://api.coinbase.com/v2/prices/"
     property string historyUrl: historyBaseUrl + currencyPair + "/historic?period=day"
-    property int sampleInterval: 30000 // ms (debug cadence; keep gentle for production)
+    property int sampleInterval: 300000 // ms (debug cadence; keep gentle for production)
     property int maxSamples: 24 * 60 * 60 * 1000 / sampleInterval
     property var samples: []
     property real minSample: 0
