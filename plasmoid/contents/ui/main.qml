@@ -33,6 +33,8 @@ PlasmoidItem {
     // Visual constants
     property color accentColor: Kirigami.Theme.highlightColor
     property color textColor: Kirigami.Theme.textColor
+    property color gridLineColor: Kirigami.ColorUtils.linearInterpolation(
+        Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.2)
     property var gridStops: [1, 0.75, 0.5, 0.25, 0]
     property int historyRetryCount: 0
     property int maxHistoryRetries: 3
@@ -303,14 +305,17 @@ PlasmoidItem {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.smallSpacing
-        spacing: Kirigami.Units.smallSpacing
+        anchors.leftMargin: Kirigami.Units.largeSpacing
+        anchors.rightMargin: Kirigami.Units.largeSpacing
+        anchors.topMargin: Kirigami.Units.smallSpacing
+        anchors.bottomMargin: Kirigami.Units.smallSpacing
+        spacing: Kirigami.Units.largeSpacing
 
-        QQC2.Label {
-            Layout.alignment: Qt.AlignHCenter
+        Kirigami.Heading {
+            level: 2
             text: "BTC / " + currency
             color: textColor
-            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.3
+            Layout.alignment: Qt.AlignHCenter
         }
 
         Item {
@@ -340,10 +345,8 @@ PlasmoidItem {
                         return;
                     }
 
-                    ctx.strokeStyle = root.accentColor;
-                    ctx.lineWidth = 1;
+                    // Fill under the line
                     ctx.beginPath();
-
                     for (let i = 0; i < root.samples.length; ++i) {
                         let ratio = root.normalizedValue(root.samples[i]);
                         let x = (i / (root.samples.length - 1)) * width;
@@ -353,13 +356,35 @@ PlasmoidItem {
                         else
                             ctx.lineTo(x, y);
                     }
+                    ctx.lineTo(width, height);
+                    ctx.lineTo(0, height);
+                    ctx.closePath();
+                    ctx.fillStyle = Qt.rgba(
+                        root.accentColor.r,
+                        root.accentColor.g,
+                        root.accentColor.b, 0.1);
+                    ctx.fill();
 
+                    // Stroke the line
+                    ctx.strokeStyle = root.accentColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    for (let i = 0; i < root.samples.length; ++i) {
+                        let ratio = root.normalizedValue(root.samples[i]);
+                        let x = (i / (root.samples.length - 1)) * width;
+                        let y = (1 - ratio) * height;
+                        if (i === 0)
+                            ctx.moveTo(x, y);
+                        else
+                            ctx.lineTo(x, y);
+                    }
                     ctx.stroke();
                 }
             }
 
+            // Grid lines + labels
             Repeater {
-                model: gridStops.length
+                model: root.gridStops.length
                 delegate: Item {
                     id: gridDelegate
                     required property int index
@@ -374,67 +399,65 @@ PlasmoidItem {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         height: 1
-                        color: root.textColor
-                        opacity: 0.15
+                        color: root.gridLineColor
                     }
 
                     QQC2.Label {
-                        id: stopLabel
-                        anchors.right: parent.right
-                        anchors.rightMargin: Kirigami.Units.smallSpacing
+                        anchors.left: parent.left
+                        anchors.leftMargin: Kirigami.Units.smallSpacing
                         anchors.bottom: parent.top
+                        anchors.bottomMargin: 1
                         text: root.labelForStop(gridDelegate.stopValue)
                         color: root.textColor
-                        opacity: 0.6
-                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
+                        opacity: 0.75
+                        font: Kirigami.Theme.smallFont
                     }
                 }
             }
 
             QQC2.BusyIndicator {
                 anchors.centerIn: parent
-                running: loading
-                visible: loading
+                running: root.loading
+                visible: root.loading
             }
         }
 
+        // Legend row
         RowLayout {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
-            Layout.alignment: Qt.AlignBottom
-            Layout.bottomMargin: Kirigami.Units.smallSpacing
 
             Rectangle {
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 0.3
-                Layout.preferredHeight: Kirigami.Units.gridUnit
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 0.6
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 0.6
+                radius: width / 2
                 color: accentColor
-                Layout.alignment: Qt.AlignBottom
+                Layout.alignment: Qt.AlignVCenter
             }
 
             QQC2.Label {
                 Layout.fillWidth: true
-                text: loading ? "Fetching BTC price" : "BTC Price"
+                text: loading ? "Fetching BTC price\u2026" : "BTC Price"
                 color: textColor
-                font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.1
-                Layout.alignment: Qt.AlignBottom
+                Layout.alignment: Qt.AlignVCenter
             }
 
             ColumnLayout {
                 spacing: 0
-                Layout.alignment: Qt.AlignBottom
+                Layout.alignment: Qt.AlignVCenter
 
                 QQC2.Label {
                     text: formattedPrice(currentValue)
                     color: textColor
-                    font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.2
+                    font.weight: Font.Medium
                     Layout.alignment: Qt.AlignRight
                 }
 
                 QQC2.Label {
                     text: lastUpdated ? Qt.formatDateTime(new Date(lastUpdated), Qt.DefaultLocaleShortDate) : "--"
                     color: textColor
-                    opacity: 0.7
-                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                    opacity: 0.75
+                    font: Kirigami.Theme.smallFont
                     Layout.alignment: Qt.AlignRight
                 }
             }
