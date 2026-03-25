@@ -26,8 +26,10 @@ PlasmoidItem {
     property real minSample: 0
     property real maxSample: 0
     property real currentValue: 0
+    property real openingValue: 0
     property string lastUpdated: ""
     property bool loading: true
+    property bool apiError: false
     property real failureStartTime: 0
     property bool historyRecoveryNeeded: false
     property int failureRecoveryInterval: 30 * 60 * 1000 // ms
@@ -147,11 +149,13 @@ PlasmoidItem {
 
     function registerSpotSuccess(): void {
         failureStartTime = 0;
+        apiError = false;
         attemptHistoryRecovery();
     }
 
     function registerSpotFailure(): void {
         let now = Date.now();
+        apiError = true;
         if (!failureStartTime) {
             failureStartTime = now;
         }
@@ -203,6 +207,7 @@ PlasmoidItem {
         }
         historyRetryCount = 0;
         samples = interpolated;
+        openingValue = interpolated[0];
         currentValue = interpolated[interpolated.length - 1];
         lastUpdated = new Date(parsed[parsed.length - 1].time).toISOString();
         updateRange();
@@ -299,6 +304,90 @@ PlasmoidItem {
         return currencySymbol + Qt.locale().toString(value, "f", 2);
     }
 
+    function priceChange(): real {
+        if (!openingValue || !currentValue)
+            return 0;
+        return currentValue - openingValue;
+    }
+
+    function formattedPriceChange(): string {
+        let delta = priceChange();
+        if (delta === 0 && !openingValue)
+            return "";
+        let sign = delta >= 0 ? "+" : "";
+        return sign + currencySymbol + Qt.locale().toString(Math.abs(delta), "f", 2);
+    }
+
+    function priceChangeColor(): color {
+        let delta = priceChange();
+        if (delta > 0)
+            return Kirigami.Theme.positiveTextColor;
+        if (delta < 0)
+            return Kirigami.Theme.negativeTextColor;
+        return textColor;
+    }
+
+    // Monotone cubic interpolation (Fritsch-Carlson)
+    // Draws a smooth bezier path through all points with no overshoot
+    function drawSmoothPath(ctx: var, pts: var): void {
+        const n = pts.length;
+        if (n < 2) return;
+
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (n === 2) {
+            ctx.lineTo(pts[1].x, pts[1].y);
+            return;
+        }
+
+        // Compute slopes between consecutive points
+        let dx = new Array(n - 1);
+        let dy = new Array(n - 1);
+        let m = new Array(n - 1);
+        for (let i = 0; i < n - 1; ++i) {
+            dx[i] = pts[i + 1].x - pts[i].x;
+            dy[i] = pts[i + 1].y - pts[i].y;
+            m[i] = dx[i] === 0 ? 0 : dy[i] / dx[i];
+        }
+
+        // Compute tangents (Fritsch-Carlson)
+        let tangents = new Array(n);
+        tangents[0] = m[0];
+        tangents[n - 1] = m[n - 2];
+        for (let i = 1; i < n - 1; ++i) {
+            if (m[i - 1] * m[i] <= 0) {
+                tangents[i] = 0;
+            } else {
+                tangents[i] = (m[i - 1] + m[i]) / 2;
+            }
+        }
+
+        // Adjust tangents to ensure monotonicity
+        for (let i = 0; i < n - 1; ++i) {
+            if (m[i] === 0) {
+                tangents[i] = 0;
+                tangents[i + 1] = 0;
+            } else {
+                let alpha = tangents[i] / m[i];
+                let beta = tangents[i + 1] / m[i];
+                let s = alpha * alpha + beta * beta;
+                if (s > 9) {
+                    let t = 3 / Math.sqrt(s);
+                    tangents[i] = t * alpha * m[i];
+                    tangents[i + 1] = t * beta * m[i];
+                }
+            }
+        }
+
+        // Draw cubic bezier segments
+        for (let i = 0; i < n - 1; ++i) {
+            let d = dx[i] / 3;
+            ctx.bezierCurveTo(
+                pts[i].x + d, pts[i].y + tangents[i] * d,
+                pts[i + 1].x - d, pts[i + 1].y - tangents[i + 1] * d,
+                pts[i + 1].x, pts[i + 1].y);
+        }
+    }
+
     function labelForStop(stop: real): string {
         if (maxSample === minSample)
             return formattedPrice(currentValue);
@@ -349,19 +438,19 @@ PlasmoidItem {
                         return;
                     }
 
-                    // Build line path
-                    ctx.beginPath();
+                    // Build point array
+                    let pts = new Array(root.samples.length);
                     for (let i = 0; i < root.samples.length; ++i) {
                         let ratio = root.normalizedValue(root.samples[i]);
-                        let x = (i / (root.samples.length - 1)) * width;
-                        let y = (1 - ratio) * height;
-                        if (i === 0)
-                            ctx.moveTo(x, y);
-                        else
-                            ctx.lineTo(x, y);
+                        pts[i] = {
+                            x: (i / (root.samples.length - 1)) * width,
+                            y: (1 - ratio) * height
+                        };
                     }
 
-                    // Stroke
+                    // Stroke smooth line
+                    ctx.beginPath();
+                    root.drawSmoothPath(ctx, pts);
                     ctx.strokeStyle = root.accentColor;
                     ctx.lineWidth = 2;
                     ctx.stroke();
@@ -416,6 +505,29 @@ PlasmoidItem {
                 running: root.loading
                 visible: root.loading
             }
+
+            // Error indicator
+            RowLayout {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: Kirigami.Units.smallSpacing
+                spacing: Kirigami.Units.smallSpacing
+                visible: root.apiError && !root.loading
+
+                Kirigami.Icon {
+                    source: "data-warning"
+                    Layout.preferredWidth: Kirigami.Units.iconSizes.small
+                    Layout.preferredHeight: Kirigami.Units.iconSizes.small
+                    color: Kirigami.Theme.negativeTextColor
+                }
+
+                QQC2.Label {
+                    text: "API error"
+                    color: Kirigami.Theme.negativeTextColor
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.9
+                }
+            }
         }
 
         // Legend row
@@ -442,11 +554,22 @@ PlasmoidItem {
                 spacing: 0
                 Layout.alignment: Qt.AlignVCenter
 
-                QQC2.Label {
-                    text: formattedPrice(currentValue)
-                    color: textColor
-                    font.weight: Font.Medium
+                RowLayout {
+                    spacing: Kirigami.Units.smallSpacing
                     Layout.alignment: Qt.AlignRight
+
+                    QQC2.Label {
+                        text: formattedPrice(currentValue)
+                        color: textColor
+                        font.weight: Font.Medium
+                    }
+
+                    QQC2.Label {
+                        text: formattedPriceChange()
+                        color: priceChangeColor()
+                        font: Kirigami.Theme.smallFont
+                        visible: text !== ""
+                    }
                 }
 
                 QQC2.Label {
