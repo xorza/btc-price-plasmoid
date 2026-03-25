@@ -12,6 +12,9 @@ PlasmoidItem {
     implicitWidth: Kirigami.Units.gridUnit * 24
     implicitHeight: Kirigami.Units.gridUnit * 16
 
+    Layout.minimumWidth: Kirigami.Units.gridUnit * 14
+    Layout.minimumHeight: Kirigami.Units.gridUnit * 10
+
     // Data + API setup
     property string currency: "USD"
     property string currencySymbol: "$"
@@ -322,6 +325,7 @@ PlasmoidItem {
             id: chartArea
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: Kirigami.Units.gridUnit * 3
 
             Canvas {
                 id: chartCanvas
