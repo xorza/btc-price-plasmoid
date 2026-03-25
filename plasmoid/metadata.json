@@ -5,7 +5,7 @@
     "Name": "BTC Price Chart",
     "Description": "Line chart plasmoid for Bitcoin price",
     "Version": "0.1.0",
-    "CompatVersion": "6.0",
+    "CompatVersion": "6.6",
     "Authors": [
       {
         "Name": "noname",

@@ -1,10 +1,13 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import org.kde.plasma.plasmoid 2.0 as Plasmoid
+import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.plasmoid
 
-Plasmoid.PlasmoidItem {
+PlasmoidItem {
     id: root
     implicitWidth: Kirigami.Units.gridUnit * 24
     implicitHeight: Kirigami.Units.gridUnit * 16
@@ -12,11 +15,8 @@ Plasmoid.PlasmoidItem {
     // Data + API setup
     property string currency: "USD"
     property string currencySymbol: "$"
-    property string apiBaseUrl: "https://api.coinbase.com/v2/prices/spot?currency="
-    property string apiUrl: apiBaseUrl + currency
-    property string currencyPair: "BTC-" + currency
-    property string historyBaseUrl: "https://api.coinbase.com/v2/prices/"
-    property string historyUrl: historyBaseUrl + currencyPair + "/historic?period=day"
+    property string apiUrl: "https://api.coinbase.com/v2/prices/spot?currency=" + currency
+    property string historyUrl: "https://api.coinbase.com/v2/prices/BTC-" + currency + "/historic?period=day"
     property int sampleInterval: 300000 // ms (debug cadence; keep gentle for production)
     property int maxSamples: 24 * 60 * 60 * 1000 / sampleInterval
     property var samples: []
@@ -31,31 +31,43 @@ Plasmoid.PlasmoidItem {
     property bool historyFetchInProgress: false
 
     // Visual constants
-    property color accentColor: "#1de9b6"
-    property color gridColor: "#5c6155"
-    property color textColor: "#f4f5f0"
+    property color accentColor: Kirigami.Theme.highlightColor
+    property color textColor: Kirigami.Theme.textColor
     property var gridStops: [1, 0.75, 0.5, 0.25, 0]
+    property int historyRetryCount: 0
+    property int maxHistoryRetries: 3
+
+    Plasmoid.backgroundHints: PlasmaCore.Types.DefaultBackground
 
     Timer {
         id: fetchTimer
         interval: sampleInterval
         repeat: true
-        running: true
+        running: false
         onTriggered: fetchPrice()
+    }
+
+    Timer {
+        id: historyRetryTimer
+        interval: 10000
+        repeat: false
+        onTriggered: fetchHistory()
     }
 
     Component.onCompleted: {
         fetchHistory();
         fetchPrice();
+        fetchTimer.start();
     }
 
-    function fetchHistory() {
+    function fetchHistory(): void {
         historyFetchInProgress = true;
-        var xhr = new XMLHttpRequest();
+        let xhr = new XMLHttpRequest();
         xhr.open("GET", historyUrl);
         xhr.onerror = function (event) {
             console.error("BTC history network error", event && event.type ? event.type : event);
             historyFetchInProgress = false;
+            retryHistoryFetch();
         };
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
@@ -63,8 +75,8 @@ Plasmoid.PlasmoidItem {
             historyFetchInProgress = false;
             if (xhr.status === 200) {
                 try {
-                    var data = JSON.parse(xhr.responseText);
-                    var prices = data && data.data && data.data.prices;
+                    let data = JSON.parse(xhr.responseText);
+                    let prices = data && data.data && data.data.prices;
                     if (!prices || !prices.length) {
                         console.warn("BTC history payload empty", xhr.responseText);
                         return;
@@ -75,13 +87,23 @@ Plasmoid.PlasmoidItem {
                 }
             } else {
                 console.error("BTC history request failed", xhr.status, xhr.responseText);
+                retryHistoryFetch();
             }
         };
         xhr.send();
     }
 
-    function fetchPrice() {
-        var xhr = new XMLHttpRequest();
+    function retryHistoryFetch(): void {
+        if (historyRecoveryNeeded)
+            return;
+        if (historyRetryCount < maxHistoryRetries) {
+            historyRetryCount++;
+            historyRetryTimer.start();
+        }
+    }
+
+    function fetchPrice(): void {
+        let xhr = new XMLHttpRequest();
         xhr.open("GET", apiUrl);
         xhr.onerror = function (event) {
             handleSpotFailure("BTC API network error", event && event.type ? event.type : event);
@@ -91,10 +113,10 @@ Plasmoid.PlasmoidItem {
                 return;
             if (xhr.status === 200) {
                 try {
-                    var data = JSON.parse(xhr.responseText);
-                    var payload = data && data.data;
-                    var amount = payload && payload.amount ? parseFloat(payload.amount) : NaN;
-                    if (!amount || isNaN(amount)) {
+                    let data = JSON.parse(xhr.responseText);
+                    let payload = data && data.data;
+                    let amount = payload && payload.amount !== undefined ? parseFloat(payload.amount) : NaN;
+                    if (isNaN(amount)) {
                         handleSpotFailure("BTC API payload missing amount", xhr.responseText);
                         return;
                     }
@@ -113,18 +135,18 @@ Plasmoid.PlasmoidItem {
         xhr.send();
     }
 
-    function handleSpotFailure(message, detail) {
+    function handleSpotFailure(message: string, detail: string): void {
         console.error(message, detail);
         registerSpotFailure();
     }
 
-    function registerSpotSuccess() {
+    function registerSpotSuccess(): void {
         failureStartTime = 0;
         attemptHistoryRecovery();
     }
 
-    function registerSpotFailure() {
-        var now = Date.now();
+    function registerSpotFailure(): void {
+        let now = Date.now();
         if (!failureStartTime) {
             failureStartTime = now;
         }
@@ -135,27 +157,27 @@ Plasmoid.PlasmoidItem {
         attemptHistoryRecovery();
     }
 
-    function attemptHistoryRecovery() {
+    function attemptHistoryRecovery(): void {
         if (!historyRecoveryNeeded || historyFetchInProgress)
             return;
         fetchHistory();
     }
 
-    function pushSample(price) {
-        var nextSamples = samples.slice(Math.max(0, samples.length - (maxSamples - 1)));
+    function pushSample(price: real): void {
+        let nextSamples = samples.slice(Math.max(0, samples.length - (maxSamples - 1)));
         nextSamples.push(price);
         samples = nextSamples;
         updateRange();
         chartCanvas.requestPaint();
     }
 
-    function hydrateSamplesFromHistory(historyEntries) {
-        var parsed = [];
-        for (var i = 0; i < historyEntries.length; ++i) {
-            var entry = historyEntries[i] || {};
-            var rawPrice = entry.price || entry.amount || entry.spot_price;
-            var price = rawPrice ? parseFloat(rawPrice) : NaN;
-            var timestamp = parseHistoryTimestamp(entry.time);
+    function hydrateSamplesFromHistory(historyEntries: var): void {
+        let parsed = [];
+        for (let i = 0; i < historyEntries.length; ++i) {
+            let entry = historyEntries[i] || {};
+            let rawPrice = entry.price || entry.amount || entry.spot_price;
+            let price = rawPrice ? parseFloat(rawPrice) : NaN;
+            let timestamp = parseHistoryTimestamp(entry.time);
             if (!isNaN(price) && !isNaN(timestamp)) {
                 parsed.push({
                     time: timestamp,
@@ -167,17 +189,14 @@ Plasmoid.PlasmoidItem {
             console.warn("BTC history missing usable samples");
             return;
         }
-        parsed.sort(function (a, b) {
-            return a.time - b.time;
-        });
-        var interpolated = interpolateHistorySeries(parsed);
+        parsed.sort((a, b) => a.time - b.time);
+        let interpolated = interpolateHistorySeries(parsed);
 
         if (!interpolated.length) {
             console.warn("BTC history interpolation failed");
             return;
         }
-        console.log("BTC history hydrated", parsed.length, "entries ->", interpolated.length, "samples", "source range", new Date(parsed[0].time).toISOString(), "to", new Date(parsed[parsed.length - 1].time).toISOString());
-        console.log("BTC history preview", interpolated.slice(0, 5), "...", interpolated.slice(Math.max(0, interpolated.length - 5)));
+        historyRetryCount = 0;
         samples = interpolated;
         currentValue = interpolated[interpolated.length - 1];
         lastUpdated = new Date(parsed[parsed.length - 1].time).toISOString();
@@ -186,25 +205,25 @@ Plasmoid.PlasmoidItem {
         loading = false;
         if (historyRecoveryNeeded) {
             historyRecoveryNeeded = false;
-            failureStartTime = Date.now();
+            failureStartTime = 0;
         }
     }
 
-    function interpolateHistorySeries(points) {
-        var desiredSamples = maxSamples;
+    function interpolateHistorySeries(points: var): list<real> {
+        const desiredSamples = maxSamples;
         if (desiredSamples <= 0)
             return [];
-        var interval = sampleInterval;
-        var newestTime = points[points.length - 1].time;
-        var oldestTime = newestTime - (desiredSamples - 1) * interval;
-        var historyOldest = points[0].time;
+        const interval = sampleInterval;
+        const newestTime = points[points.length - 1].time;
+        const oldestTime = newestTime - (desiredSamples - 1) * interval;
+        const historyOldest = points[0].time;
         if (historyOldest > oldestTime) {
             console.warn("BTC history older gap", new Date(historyOldest).toISOString(), "target oldest", new Date(oldestTime).toISOString());
         }
-        var result = new Array(desiredSamples);
-        var segmentIndex = 0;
-        for (var i = 0; i < desiredSamples; ++i) {
-            var targetTime = oldestTime + i * interval;
+        let result = new Array(desiredSamples);
+        let segmentIndex = 0;
+        for (let i = 0; i < desiredSamples; ++i) {
+            let targetTime = oldestTime + i * interval;
             if (targetTime <= points[0].time) {
                 result[i] = points[0].price;
                 continue;
@@ -216,41 +235,46 @@ Plasmoid.PlasmoidItem {
             while (segmentIndex < points.length - 2 && targetTime > points[segmentIndex + 1].time) {
                 segmentIndex++;
             }
-            var left = points[segmentIndex];
-            var right = points[segmentIndex + 1];
-            var span = right.time - left.time;
-            var ratio = span === 0 ? 0 : (targetTime - left.time) / span;
+            let left = points[segmentIndex];
+            let right = points[segmentIndex + 1];
+            let span = right.time - left.time;
+            let ratio = span === 0 ? 0 : (targetTime - left.time) / span;
             result[i] = left.price + ratio * (right.price - left.price);
         }
         return result;
     }
 
-    function parseHistoryTimestamp(raw) {
+    function parseHistoryTimestamp(raw: var): real {
         if (raw === undefined || raw === null)
             return NaN;
         if (typeof raw === "number")
             return normalizeEpoch(raw);
         if (typeof raw === "string" && raw.length && raw.match(/^\d+(\.\d+)?$/))
             return normalizeEpoch(parseFloat(raw));
-        var parsed = Date.parse(raw);
+        let parsed = Date.parse(raw);
         return isNaN(parsed) ? NaN : parsed;
     }
 
-    function normalizeEpoch(value) {
+    function normalizeEpoch(value: real): real {
         if (!isFinite(value))
             return NaN;
         return value < 1e12 ? value * 1000 : value;
     }
 
-    function updateRange() {
+    function updateRange(): void {
         if (!samples.length) {
             minSample = 0;
             maxSample = 0;
             return;
         }
-        minSample = Math.min.apply(Math, samples);
-        maxSample = Math.max.apply(Math, samples);
-        var padding = (maxSample - minSample) * 0.05;
+        let lo = samples[0], hi = samples[0];
+        for (let i = 1; i < samples.length; ++i) {
+            if (samples[i] < lo) lo = samples[i];
+            if (samples[i] > hi) hi = samples[i];
+        }
+        minSample = lo;
+        maxSample = hi;
+        let padding = (maxSample - minSample) * 0.05;
         if (padding === 0) {
             padding = 1;
         }
@@ -258,29 +282,28 @@ Plasmoid.PlasmoidItem {
         maxSample += padding;
     }
 
-    function normalizedValue(value) {
+    function normalizedValue(value: real): real {
         if (maxSample === minSample)
             return 0.5;
         return (value - minSample) / (maxSample - minSample);
     }
 
-    function formattedPrice(value) {
-        if (value === undefined || value === null || value !== value)
+    function formattedPrice(value: real): string {
+        if (isNaN(value))
             return "--";
         return currencySymbol + Qt.locale().toString(value, "f", 2);
     }
 
-    function labelForStop(stop) {
+    function labelForStop(stop: real): string {
         if (maxSample === minSample)
             return formattedPrice(currentValue);
-        var value = minSample + stop * (maxSample - minSample);
+        let value = minSample + stop * (maxSample - minSample);
         return formattedPrice(value);
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Kirigami.Units.smallSpacing
-        anchors.topMargin: Kirigami.Units.smallSpacing
         spacing: Kirigami.Units.smallSpacing
 
         QQC2.Label {
@@ -295,49 +318,21 @@ Plasmoid.PlasmoidItem {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            Repeater {
-                model: gridStops.length
-                delegate: Item {
-                    width: chartArea.width
-                    height: 1
-                    y: (1 - gridStops[index]) * chartArea.height
-
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        height: 1
-                        color: gridColor
-                        opacity: 0.45
-                    }
-
-                    QQC2.Label {
-                        LayoutMirroring.enabled: true
-                        anchors.right: parent.right
-                        anchors.rightMargin: Kirigami.Units.smallSpacing
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: labelForStop(gridStops[index])
-                        color: textColor
-                        opacity: 0.8
-                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
-                    }
-                }
-            }
-
             Canvas {
                 id: chartCanvas
                 anchors.fill: parent
                 antialiasing: true
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
                 onPaint: {
-                    var ctx = getContext("2d");
-                    ctx.reset();
+                    let ctx = getContext("2d");
                     ctx.clearRect(0, 0, width, height);
 
-                    if (samples.length < 2) {
-                        if (samples.length === 1) {
-                            var singleRatio = normalizedValue(samples[0]);
-                            var pointY = (1 - singleRatio) * height;
-                            ctx.fillStyle = accentColor;
+                    if (root.samples.length < 2) {
+                        if (root.samples.length === 1) {
+                            let singleRatio = root.normalizedValue(root.samples[0]);
+                            let pointY = (1 - singleRatio) * height;
+                            ctx.fillStyle = root.accentColor;
                             ctx.beginPath();
                             ctx.arc(width - 6, pointY, 3, 0, Math.PI * 2);
                             ctx.fill();
@@ -345,14 +340,14 @@ Plasmoid.PlasmoidItem {
                         return;
                     }
 
-                    ctx.strokeStyle = accentColor;
+                    ctx.strokeStyle = root.accentColor;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
 
-                    for (var i = 0; i < samples.length; ++i) {
-                        var ratio = normalizedValue(samples[i]);
-                        var x = (i / (samples.length - 1)) * width;
-                        var y = (1 - ratio) * height;
+                    for (let i = 0; i < root.samples.length; ++i) {
+                        let ratio = root.normalizedValue(root.samples[i]);
+                        let x = (i / (root.samples.length - 1)) * width;
+                        let y = (1 - ratio) * height;
                         if (i === 0)
                             ctx.moveTo(x, y);
                         else
@@ -360,6 +355,39 @@ Plasmoid.PlasmoidItem {
                     }
 
                     ctx.stroke();
+                }
+            }
+
+            Repeater {
+                model: gridStops.length
+                delegate: Item {
+                    id: gridDelegate
+                    required property int index
+                    property real stopValue: root.gridStops[index]
+
+                    width: chartArea.width
+                    height: 1
+                    y: (1 - stopValue) * chartArea.height
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 1
+                        color: root.textColor
+                        opacity: 0.15
+                    }
+
+                    QQC2.Label {
+                        id: stopLabel
+                        anchors.right: parent.right
+                        anchors.rightMargin: Kirigami.Units.smallSpacing
+                        anchors.bottom: parent.top
+                        text: root.labelForStop(gridDelegate.stopValue)
+                        color: root.textColor
+                        opacity: 0.6
+                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
+                    }
                 }
             }
 
@@ -379,7 +407,6 @@ Plasmoid.PlasmoidItem {
             Rectangle {
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 0.3
                 Layout.preferredHeight: Kirigami.Units.gridUnit
-                radius: 0
                 color: accentColor
                 Layout.alignment: Qt.AlignBottom
             }
