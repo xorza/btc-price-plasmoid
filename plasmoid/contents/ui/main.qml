@@ -314,7 +314,7 @@ PlasmoidItem {
         let delta = priceChange();
         if (delta === 0 && !openingValue)
             return "";
-        let sign = delta >= 0 ? "+" : "";
+        let sign = delta >= 0 ? "+" : "-";
         return sign + currencySymbol + Qt.locale().toString(Math.abs(delta), "f", 2);
     }
 
@@ -341,12 +341,10 @@ PlasmoidItem {
 
         // Compute slopes between consecutive points
         let dx = new Array(n - 1);
-        let dy = new Array(n - 1);
         let m = new Array(n - 1);
         for (let i = 0; i < n - 1; ++i) {
             dx[i] = pts[i + 1].x - pts[i].x;
-            dy[i] = pts[i + 1].y - pts[i].y;
-            m[i] = dx[i] === 0 ? 0 : dy[i] / dx[i];
+            m[i] = dx[i] === 0 ? 0 : (pts[i + 1].y - pts[i].y) / dx[i];
         }
 
         // Compute tangents (Fritsch-Carlson)
