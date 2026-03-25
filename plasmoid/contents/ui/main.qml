@@ -17,7 +17,7 @@ PlasmoidItem {
     property string currencySymbol: "$"
     property string apiUrl: "https://api.coinbase.com/v2/prices/spot?currency=" + currency
     property string historyUrl: "https://api.coinbase.com/v2/prices/BTC-" + currency + "/historic?period=day"
-    property int sampleInterval: 300000 // ms (debug cadence; keep gentle for production)
+    property int sampleInterval: 300000 // ms (5 minutes)
     property int maxSamples: 24 * 60 * 60 * 1000 / sampleInterval
     property var samples: []
     property real minSample: 0
@@ -35,7 +35,7 @@ PlasmoidItem {
     property color textColor: Kirigami.Theme.textColor
     property color gridLineColor: Kirigami.ColorUtils.linearInterpolation(
         Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.2)
-    property var gridStops: [1, 0.75, 0.5, 0.25, 0]
+    property var gridStops: [0.9, 0.7, 0.5, 0.3, 0.1]
     property int historyRetryCount: 0
     property int maxHistoryRetries: 3
 
@@ -345,7 +345,7 @@ PlasmoidItem {
                         return;
                     }
 
-                    // Fill under the line
+                    // Build line path
                     ctx.beginPath();
                     for (let i = 0; i < root.samples.length; ++i) {
                         let ratio = root.normalizedValue(root.samples[i]);
@@ -356,6 +356,13 @@ PlasmoidItem {
                         else
                             ctx.lineTo(x, y);
                     }
+
+                    // Stroke
+                    ctx.strokeStyle = root.accentColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Fill under the line
                     ctx.lineTo(width, height);
                     ctx.lineTo(0, height);
                     ctx.closePath();
@@ -364,21 +371,6 @@ PlasmoidItem {
                         root.accentColor.g,
                         root.accentColor.b, 0.1);
                     ctx.fill();
-
-                    // Stroke the line
-                    ctx.strokeStyle = root.accentColor;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    for (let i = 0; i < root.samples.length; ++i) {
-                        let ratio = root.normalizedValue(root.samples[i]);
-                        let x = (i / (root.samples.length - 1)) * width;
-                        let y = (1 - ratio) * height;
-                        if (i === 0)
-                            ctx.moveTo(x, y);
-                        else
-                            ctx.lineTo(x, y);
-                    }
-                    ctx.stroke();
                 }
             }
 
