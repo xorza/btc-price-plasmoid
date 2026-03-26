@@ -1,11 +1,18 @@
 # BTC Price Plasmoid
 
-A KDE Plasma 6 widget that displays the Bitcoin price as a compact line chart with 24 hours of history. Built with Qt 6.5 and QML, it fetches live price data from the Coinbase public API.
+A KDE Plasma 6.6 widget that displays the Bitcoin price as a smooth line chart with 24 hours of history. Built with Qt 6 and QML, it fetches live price data from the Coinbase public API.
 
-## Repository layout
+| Dark theme | Light theme |
+|:---:|:---:|
+| ![Dark theme](docs/Screenshot_20260326_020441.png) | ![Light theme](docs/Screenshot_20260326_020522.png) |
 
-- `plasmoid/metadata.json` – Plugin metadata consumed by Plasma Shell and `kpackagetool6`.
-- `plasmoid/contents/ui/main.qml` – QML entry point that draws the card UI, polls the BTC/USD price, and plots samples on a line chart.
+## Features
+
+- Smooth monotone cubic interpolated line chart with fill
+- 24h price change indicator (green/red)
+- Theme-aware colors (works with light and dark Plasma themes)
+- API error indicator with automatic recovery
+- Automatic history reload after extended outages
 
 ## Getting started
 
@@ -16,15 +23,28 @@ A KDE Plasma 6 widget that displays the Bitcoin price as a compact line chart wi
    kpackagetool6 --type Plasma/Applet -i plasmoid
    ```
 4. Add the widget to your Plasma desktop or panel, or run `plasmoidviewer -a plasmoid` to preview it.
-5. To update after making changes:
-   ```sh
-   kpackagetool6 --type Plasma/Applet -u plasmoid
-   kquitapp6 plasmashell && kstart plasmashell
-   ```
-6. To uninstall:
-   ```sh
-   kpackagetool6 --type Plasma/Applet -r com.cssodessa.btcplasmoid
-   ```
+
+## Commands
+
+```sh
+# Install
+kpackagetool6 --type Plasma/Applet -i plasmoid
+
+# Update after changes
+kpackagetool6 --type Plasma/Applet -u plasmoid
+
+# Restart Plasma shell (picks up changes)
+kquitapp6 plasmashell && kstart plasmashell
+
+# Preview without installing to desktop
+plasmoidviewer -a plasmoid
+
+# Uninstall
+kpackagetool6 --type Plasma/Applet -r com.cssodessa.btcplasmoid
+
+# Package for distribution
+zip -r btc-price.plasmoid plasmoid
+```
 
 ## Data source
 
