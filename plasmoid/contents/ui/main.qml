@@ -414,6 +414,19 @@ PlasmoidItem {
             Layout.fillHeight: true
             Layout.minimumHeight: Kirigami.Units.gridUnit * 3
 
+            // 1. Grid lines (behind chart)
+            Repeater {
+                model: root.gridStops.length
+                delegate: Rectangle {
+                    required property int index
+                    width: chartArea.width
+                    height: 1
+                    y: (1 - root.gridStops[index]) * chartArea.height
+                    color: root.gridLineColor
+                }
+            }
+
+            // 2. Chart line + fill
             Canvas {
                 id: chartCanvas
                 anchors.fill: parent
@@ -465,36 +478,17 @@ PlasmoidItem {
                 }
             }
 
-            // Grid lines + labels
+            // 3. Price labels (on top)
             Repeater {
                 model: root.gridStops.length
-                delegate: Item {
-                    id: gridDelegate
+                delegate: QQC2.Label {
                     required property int index
-                    property real stopValue: root.gridStops[index]
-
-                    width: chartArea.width
-                    height: 1
-                    y: (1 - stopValue) * chartArea.height
-
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        height: 1
-                        color: root.gridLineColor
-                    }
-
-                    QQC2.Label {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Kirigami.Units.smallSpacing
-                        anchors.bottom: parent.top
-                        anchors.bottomMargin: 1
-                        text: root.labelForStop(gridDelegate.stopValue)
-                        color: root.textColor
-                        opacity: 0.75
-                        font: Kirigami.Theme.smallFont
-                    }
+                    x: Kirigami.Units.smallSpacing
+                    y: (1 - root.gridStops[index]) * chartArea.height - implicitHeight - 1
+                    text: root.labelForStop(root.gridStops[index])
+                    color: root.textColor
+                    opacity: 0.75
+                    font: Kirigami.Theme.smallFont
                 }
             }
 
